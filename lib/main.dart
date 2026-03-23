@@ -9,6 +9,7 @@ import 'providers/water_provider.dart';
 
 import 'providers/notification_provider.dart';
 import 'widgets/app_layout.dart';
+import 'screens/splash_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/money_management_screen.dart';
 import 'screens/analytics_screen.dart';
@@ -18,6 +19,7 @@ import 'screens/login_screen.dart';
 
 import 'services/notification_service.dart';
 import 'services/auth_service.dart';
+import 'providers/assistant_provider.dart';
 
 
 void main() async {
@@ -64,8 +66,15 @@ void main() async {
   );
 }
 
-class SaveSphereApp extends StatelessWidget {
+class SaveSphereApp extends StatefulWidget {
   const SaveSphereApp({super.key});
+
+  @override
+  State<SaveSphereApp> createState() => _SaveSphereAppState();
+}
+
+class _SaveSphereAppState extends State<SaveSphereApp> {
+  bool _splashFinished = false;
 
   @override
   Widget build(BuildContext context) {
@@ -77,9 +86,9 @@ class SaveSphereApp extends StatelessWidget {
           theme: AppTheme.lightTheme,
           darkTheme: AppTheme.darkTheme,
           debugShowCheckedModeBanner: false,
-          home: authService.isLoggedIn 
-              ? const LoggedInWrapper() 
-              : const LoginScreen(),
+          home: !_splashFinished
+              ? SplashScreen(onFinished: () => setState(() => _splashFinished = true))
+              : (authService.isLoggedIn ? const LoggedInWrapper() : const LoginScreen()),
         );
       },
     );
@@ -95,6 +104,7 @@ class LoggedInWrapper extends StatelessWidget {
       providers: [
         ChangeNotifierProvider(create: (_) => EnergyDataProvider()),
         ChangeNotifierProvider(create: (_) => WaterDataProvider()),
+        ChangeNotifierProvider(create: (_) => AssistantProvider()),
       ],
       child: const MainRouter(),
     );

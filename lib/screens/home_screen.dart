@@ -6,7 +6,9 @@ import '../providers/water_provider.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/bill_card.dart';
 import '../widgets/live_usage_chart.dart';
+import '../widgets/live_usage_chart.dart';
 import '../theme/app_theme.dart';
+import '../widgets/smart_assistant.dart';
 
 class HomeScreen extends StatefulWidget {
   final Function(String) onNavigate;
@@ -24,37 +26,53 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.transparent,
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _buildHeader(),
-            const SizedBox(height: 24),
-            _buildDashboardToggle(),
-            const SizedBox(height: 16),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 400),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeInCubic,
-              transitionBuilder: (Widget child, Animation<double> animation) {
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(0.0, 0.05),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
-                  ),
-                );
-              },
-              child: _isWaterMode 
-                ? _buildWaterDashboard(context) 
-                : _buildEnergyDashboard(context),
+      body: Stack(
+        children: [
+          SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 24),
+                _buildDashboardToggle(),
+                const SizedBox(height: 16),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 400),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (Widget child, Animation<double> animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: SlideTransition(
+                        position: Tween<Offset>(
+                          begin: const Offset(0.0, 0.05),
+                          end: Offset.zero,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    );
+                  },
+                  child: _isWaterMode 
+                    ? _buildWaterDashboard(context) 
+                    : _buildEnergyDashboard(context),
+                ),
+                const SizedBox(height: 80), // Padding for Floating Action Button
+              ],
             ),
-          ],
-        ),
+          ),
+          Positioned(
+            bottom: 24,
+            right: 24,
+            child: Consumer<EnergyDataProvider>(
+              builder: (context, provider, child) {
+                final metrics = provider.energyMetrics;
+                if (metrics == null) return const SizedBox.shrink();
+                return SmartAssistantWidget(energyData: metrics);
+              },
+            ),
+          ),
+        ],
       ),
     );
   }
