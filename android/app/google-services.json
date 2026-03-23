@@ -1,0 +1,30 @@
+{
+    "project_info": {
+        "project_number": "75943323165",
+        "firebase_url": "https://hackkarma-default-rtdb.asia-southeast1.firebasedatabase.app",
+        "project_id": "hackkarma",
+        "storage_bucket": ""
+    },
+    "client": [
+        {
+            "client_info": {
+                "mobilesdk_app_id": "1:75943323165:android:943e1ca24f54980df148f4",
+                "android_client_info": {
+                    "package_name": "com.example.ecotrack"
+                }
+            },
+            "oauth_client": [],
+            "api_key": [
+                {
+                    "current_key": "AIzaSyCT7MCA-pF0VlqcVTnxLK53lWX_AdhfaT8"
+                }
+            ],
+            "services": {
+                "appinvite_service": {
+                    "other_platform_oauth_client": []
+                }
+            }
+        }
+    ],
+    "configuration_version": "1"
+}
