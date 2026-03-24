@@ -108,4 +108,20 @@ class NotificationTracker {
     }
     return false;
   }
+
+  /// Throttle water-low alerts to once every 30 minutes
+  Future<bool> shouldNotifyWaterLow() async {
+    final prefs = await SharedPreferences.getInstance();
+    const key = 'water_low_last_sent';
+    final lastSentIso = prefs.getString(key);
+    if (lastSentIso != null) {
+      final lastSent = DateTime.tryParse(lastSentIso);
+      if (lastSent != null &&
+          DateTime.now().difference(lastSent).inMinutes < 30) {
+        return false; // too soon
+      }
+    }
+    await prefs.setString(key, DateTime.now().toIso8601String());
+    return true;
+  }
 }

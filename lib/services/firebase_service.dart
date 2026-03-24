@@ -42,6 +42,40 @@ class EnergyLog {
   }
 }
 
+/// Represents a real-time snapshot from users/{userId}/water/live
+/// Matches the homesimulation WaterTankPayload structure.
+class WaterLiveData {
+  final String timestamp;
+  final double tankLevel;   // Liters remaining in tank
+  final double flowRate;    // Liters per minute (in/out)
+  final bool motorStatus;   // true = motor ON (refilling)
+  final bool outletOn;      // true = outlet is draining
+
+  const WaterLiveData({
+    required this.timestamp,
+    required this.tankLevel,
+    required this.flowRate,
+    required this.motorStatus,
+    required this.outletOn,
+  });
+
+  factory WaterLiveData.fromJson(Map<dynamic, dynamic> json, String key) {
+    final ts = json['timestamp']?.toString() ?? key;
+    // Support both old (waterLevel) and new (tankLevel) field names
+    final level = (json['tankLevel'] ?? json['waterLevel'] ?? 1000).toDouble();
+    final flow  = (json['flowRate'] ?? 0).toDouble();
+    final motor = (json['motorStatus'] ?? json['refillOn'] ?? false) as bool;
+    final outlet = (json['outletOn'] ?? false) as bool;
+    return WaterLiveData(
+      timestamp: ts,
+      tankLevel: level,
+      flowRate: flow,
+      motorStatus: motor,
+      outletOn: outlet,
+    );
+  }
+}
+
 class FirebaseService {
   static final FirebaseService instance = FirebaseService._internal();
   factory FirebaseService() => instance;
@@ -64,6 +98,10 @@ class FirebaseService {
   DatabaseReference get _userWaterRef {
     return _dbRef.child('users').child(_userId).child('water');
   }
+
+  DatabaseReference get _userRoomsRef {
+    return _dbRef.child('users').child(_userId).child('rooms');
+  }
   
   Future<void> writeUserData(String pathSegment, dynamic data) async {
     try {
@@ -81,10 +119,33 @@ class FirebaseService {
     });
   }
 
-  Stream<EnergyLog?> getWaterLiveStream() {
+  Stream<Map<String, dynamic>> getRoomsStream() {
+    return _userRoomsRef.onValue.map((event) {
+      if (event.snapshot.value == null) return {};
+      return Map<String, dynamic>.from(event.snapshot.value as Map);
+    });
+  }
+
+  Future<void> updateRoomStatus(String roomId, bool status) async {
+    try {
+      await _userRoomsRef.child(roomId).update({
+        'status': status,
+      });
+    } catch (e) {
+      print('FirebaseService: Failed to update room status: $e');
+    }
+  }
+
+  Stream<WaterLiveData?> getWaterLiveStream() {
     return _userWaterRef.child('live').onValue.map((event) {
       if (event.snapshot.value == null) return null;
-      return EnergyLog.fromJson(event.snapshot.value as Map<dynamic, dynamic>, 'live');
+      try {
+        return WaterLiveData.fromJson(
+          event.snapshot.value as Map<dynamic, dynamic>, 'live');
+      } catch (e) {
+        print('WaterLiveData parse error: $e');
+        return null;
+      }
     });
   }
 
@@ -112,6 +173,23 @@ class FirebaseService {
     return logs;
   }
 
+  /// Fetch water logs as WaterLiveData objects (structured water format)
+  Future<List<WaterLiveData>> fetchWaterDataLogs() async {
+    final snapshot = await _userWaterRef.child('logs').orderByKey().limitToLast(2000).get();
+    if (!snapshot.exists) return [];
+    
+    final data = snapshot.value as Map<dynamic, dynamic>;
+    final logs = <WaterLiveData>[];
+    for (final entry in data.entries) {
+      try {
+        logs.add(WaterLiveData.fromJson(entry.value as Map<dynamic, dynamic>, entry.key as String));
+      } catch (_) {}
+    }
+    logs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
+    return logs;
+  }
+
+  /// Legacy — kept for backward compat with old water data format
   Future<List<EnergyLog>> fetchWaterLogs() async {
     final snapshot = await _userWaterRef.child('logs').orderByKey().limitToLast(5000).get();
     if (!snapshot.exists) return [];
@@ -121,6 +199,19 @@ class FirebaseService {
     
     logs.sort((a, b) => a.timestamp.compareTo(b.timestamp));
     return logs;
+  }
+
+  /// Push motor state to Firebase water/control node
+  Future<void> updateWaterMotorState(bool isOn) async {
+    try {
+      final uid = _userId;
+      await _dbRef.child('users').child(uid).child('water').child('control').update({
+        'motorStatus': isOn,
+        'refillOn': isOn,
+      });
+    } catch (e) {
+      print('FirebaseService: Failed to update water motor: $e');
+    }
   }
   
   Future<TariffSlabs> fetchSettings() async {

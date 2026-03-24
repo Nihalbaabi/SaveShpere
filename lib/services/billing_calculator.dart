@@ -129,3 +129,78 @@ BillPrediction predictMonthlyBill(double currentUnits, int daysPassed, int total
 int getDaysInMonth(int year, int month) {
   return DateTime(year, month + 1, 0).day;
 }
+
+class WaterTariff {
+  final double s1; // 0-5 KL
+  final double s2; // 5-10 KL
+  final double s3; // 10-15 KL
+  final double s4; // 15-20 KL
+  final double s5; // 20-25 KL
+  final double s6; // 25-30 KL
+  final double s7; // 30-40 KL
+  final double s8; // 40-50 KL
+  final double s9; // >50 KL
+  final double minCharge;
+
+  WaterTariff({
+    required this.s1, required this.s2, required this.s3,
+    required this.s4, required this.s5, required this.s6,
+    required this.s7, required this.s8, required this.s9,
+    required this.minCharge,
+  });
+}
+
+final WaterTariff defaultWaterTariff = WaterTariff(
+  s1: 14.41, s2: 14.41, s3: 15.51, s4: 16.62,
+  s5: 17.72, s6: 19.92, s7: 23.23, s8: 25.44, s9: 54.10,
+  minCharge: 72.05,
+);
+
+/// Kerala Water Authority (KWA) Tariff logic
+double calculateWaterBill(double liters, {dynamic tariff}) {
+  final t = (tariff is WaterTariff) ? tariff : defaultWaterTariff;
+  double kl = liters / 1000.0;
+  double bill = 0.0;
+
+  if (kl <= 5) {
+    bill = kl * t.s1;
+    if (bill < t.minCharge) bill = t.minCharge;
+  } else if (kl <= 10) {
+    bill = t.minCharge + ((kl - 5) * t.s2);
+  } else if (kl <= 15) {
+    double base = t.minCharge + (5 * t.s2);
+    bill = base + ((kl - 10) * t.s3);
+  } else if (kl <= 20) {
+    bill = kl * t.s4;
+  } else if (kl <= 25) {
+    bill = kl * t.s5;
+  } else if (kl <= 30) {
+    bill = kl * t.s6;
+  } else if (kl <= 40) {
+    bill = kl * t.s7;
+  } else if (kl <= 50) {
+    bill = kl * t.s8;
+  } else {
+    bill = (50 * t.s8) + ((kl - 50) * t.s9);
+  }
+
+  return (bill * 100).round() / 100;
+}
+
+BillPrediction predictWaterBill(double currentLiters, int daysPassed, int totalDaysInMonth, {dynamic tariff}) {
+  double dailyAvg = daysPassed > 0 ? currentLiters / daysPassed : 0;
+  double predictedLiters = (dailyAvg * totalDaysInMonth * 100).round() / 100;
+  double predictedBill = calculateWaterBill(predictedLiters, tariff: tariff);
+  return BillPrediction(predictedLiters, predictedBill, (dailyAvg * 100).round() / 100);
+}
+
+Map<String, double> getWaterBillBreakdown(double liters, {dynamic tariff}) {
+  double bill = calculateWaterBill(liters, tariff: tariff);
+  return {
+    'waterCharges': bill,
+    'fixedCharges': 0.0,
+    'duty': 0.0,
+    'surcharge': 0.0,
+    'total': bill,
+  };
+}

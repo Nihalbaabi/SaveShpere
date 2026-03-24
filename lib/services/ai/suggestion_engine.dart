@@ -1,5 +1,6 @@
 import 'dart:math';
 import '../../models/energy_models.dart';
+import '../../models/water_models.dart';
 import '../../models/assistant.dart';
 
 const List<String> _generalTips = [
@@ -71,6 +72,66 @@ List<String> generateSuggestions({
 
   if (suggestions.length < 2) {
     final extraHints = _getRandomTips(2 - suggestions.length, exclude: suggestions);
+    suggestions.addAll(extraHints);
+  }
+
+  return suggestions.take(2).toList();
+}
+
+const List<String> _waterTips = [
+  "Fix leaky faucets to save up to 15 liters a day.",
+  "Run your washing machine only with full loads to save water.",
+  "Consider taking shorter showers to reduce daily water consumption.",
+  "Turn off the tap while brushing your teeth.",
+  "Use a bucket instead of a hose to wash your car.",
+  "Water plants during the early morning or late evening.",
+  "Check your toilet for silent, invisible leaks.",
+  "Install water-saving showerheads to cut down usage."
+];
+
+List<String> _getRandomWaterTips(int count, {List<String> exclude = const []}) {
+  final available = _waterTips.where((tip) => !exclude.contains(tip)).toList();
+  available.shuffle(Random());
+  return available.take(count).toList();
+}
+
+List<String> generateWaterSuggestions({
+  required Intent intent,
+  required Severity severity,
+  required WaterMetrics data,
+}) {
+  List<String> suggestions = [];
+
+  if (severity == Severity.alert || severity == Severity.warning) {
+    if (!data.motorStatus && data.currentFlowLpm > 10) {
+      suggestions.add("High flow detected with motor off. Please check for urgent leaks.");
+    }
+    suggestions.add("Your water usage is spiking. Monitor your household activities.");
+    return suggestions;
+  }
+
+  if (intent == Intent.billPrediction) {
+    suggestions.add("Monitor your daily limits to keep the water bill low.");
+  }
+
+  if (intent == Intent.realTime) {
+    if (data.currentFlowLpm > 0) {
+      suggestions.add("Your taps are currently running at ${data.currentFlowLpm.toStringAsFixed(1)} L/min.");
+    } else {
+      suggestions.add("No running water detected. Great!");
+    }
+  }
+
+  if (intent == Intent.dailyUsage) {
+    suggestions.add("Keep your usage under the 200L daily limit to stay efficient.");
+  }
+
+  if (intent == Intent.savingsTips) {
+    return _getRandomWaterTips(2, exclude: suggestions);
+  }
+
+  if (suggestions.length < 2) {
+    final extraHints = _getRandomWaterTips(2 - suggestions.length, exclude: suggestions);
     suggestions.addAll(extraHints);
   }
 

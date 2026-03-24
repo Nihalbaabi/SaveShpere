@@ -1,5 +1,6 @@
 import 'dart:math';
 import '../../models/energy_models.dart';
+import '../../models/water_models.dart';
 import '../../models/assistant.dart';
 import '../../config/assistant_config.dart';
 import '../../utils/analytics.dart';
@@ -51,21 +52,19 @@ String buildResponse(
 
   switch (intent) {
     case Intent.realTime:
-      // currentPowerKw is already in kW — display directly, no /1000 needed
       final kw = data.currentPowerKw.toStringAsFixed(2);
       final currentBillAmount = calculateSlabBill(data.monthlyTotalKwh, tariff: data.tariff);
-      baseResponse = "Right now, your real-time power usage is $kw kW. "
-          "Your current bill stands at $currencySymbol${currentBillAmount.toStringAsFixed(2)} "
-          "for ${data.monthlyTotalKwh.toStringAsFixed(1)} units this month.";
+      baseResponse = "Current power usage is $kw kW. "
+          "Your bill is $currencySymbol${currentBillAmount.toStringAsFixed(2)} "
+          "for ${data.monthlyTotalKwh.toStringAsFixed(1)} kWh this month.";
       break;
 
     case Intent.dailyUsage:
-      // currentPowerKw is already in kW — no /1000
-      baseResponse = "Total power consumed today is ${data.todayUsageKwh.toStringAsFixed(2)} kWh.";
+      baseResponse = "Today's usage is ${data.todayUsageKwh.toStringAsFixed(2)} kWh.";
       if (timeReference == "yesterday") {
-        baseResponse += " Yesterday, you used ${data.yesterdayUsageKwh.toStringAsFixed(2)} kWh.";
+        baseResponse = "Yesterday's usage was ${data.yesterdayUsageKwh.toStringAsFixed(2)} kWh.";
       } else {
-        baseResponse += " Your real-time active load is ${data.currentPowerKw.toStringAsFixed(2)} kW.";
+        baseResponse += " Active load is ${data.currentPowerKw.toStringAsFixed(2)} kW.";
       }
       break;
 
@@ -88,15 +87,14 @@ String buildResponse(
 
     case Intent.currentBill:
       final currentBillAmount = calculateSlabBill(data.monthlyTotalKwh, tariff: data.tariff);
-      baseResponse = "Your bill as of now is $currencySymbol${currentBillAmount.toStringAsFixed(2)} "
-          "based on ${data.monthlyTotalKwh.toStringAsFixed(1)} units used.";
+      baseResponse = "Current bill: $currencySymbol${currentBillAmount.toStringAsFixed(2)} "
+          "(${data.monthlyTotalKwh.toStringAsFixed(1)} kWh).";
       break;
 
     case Intent.billPrediction:
       final dt = DateTime.now();
       final prediction = predictMonthlyBill(data.monthlyTotalKwh, dt.day, getDaysInMonth(dt.year, dt.month), tariff: data.tariff);
-      baseResponse = "Your expected bill for this month is $currencySymbol${prediction.predictedBill.toStringAsFixed(2)} "
-          "based on your current usage trend.";
+      baseResponse = "Expected monthly bill: $currencySymbol${prediction.predictedBill.toStringAsFixed(2)}.";
       break;
 
     case Intent.comparison:
@@ -186,60 +184,44 @@ String buildResponse(
       break;
     
     case Intent.powerControl:
-      if (contextTopic == "all_on") baseResponse = "Turning on all monitored rooms.";
-      else if (contextTopic == "all_off") baseResponse = "Shutting down all monitored rooms.";
-      else if (contextTopic == "bedroom_on") baseResponse = "Turning on the bedroom power.";
-      else if (contextTopic == "bedroom_off") baseResponse = "Shutting down the bedroom power.";
-      else if (contextTopic == "living_on") baseResponse = "Turning on the living room power.";
-      else if (contextTopic == "living_off") baseResponse = "Shutting down the living room power.";
-      else if (contextTopic == "kitchen_on") baseResponse = "Turning on the kitchen power.";
-      else if (contextTopic == "kitchen_off") baseResponse = "Shutting down the kitchen power.";
-      else baseResponse = "I've updated the power state for you.";
+      if (contextTopic == "all_on") baseResponse = "All rooms turned ON.";
+      else if (contextTopic == "all_off") baseResponse = "All rooms turned OFF.";
+      else if (contextTopic == "bedroom_on") baseResponse = "Bedroom turned ON.";
+      else if (contextTopic == "bedroom_off") baseResponse = "Bedroom turned OFF.";
+      else if (contextTopic == "living_on") baseResponse = "Living Room turned ON.";
+      else if (contextTopic == "living_off") baseResponse = "Living Room turned OFF.";
+      else if (contextTopic == "kitchen_on") baseResponse = "Kitchen turned ON.";
+      else if (contextTopic == "kitchen_off") baseResponse = "Kitchen turned OFF.";
+      else baseResponse = "I've updated the room status for you.";
       break;
 
     // ── NEW REPORT INTENTS ─────────────────────────────────────────────────
 
     case Intent.dailyReport:
       final kw = data.currentPowerKw.toStringAsFixed(2);
-      final br = data.roomMonthlyEnergy['Bedroom'] ?? 0;
-      final lr = data.roomMonthlyEnergy['Living Room'] ?? 0;
-      final kt = data.roomMonthlyEnergy['Kitchen'] ?? 0;
       final monthBill = calculateSlabBill(data.monthlyTotalKwh, tariff: data.tariff);
-      baseResponse = "📊 Daily Report: "
+      baseResponse = "Daily Report: "
           "Live load: $kw kW. "
           "Today's usage: ${data.todayUsageKwh.toStringAsFixed(2)} kWh. "
-          "Peak hour: ${data.peakTime.isNotEmpty ? data.peakTime : 'N/A'}. "
-          "Monthly total: ${data.monthlyTotalKwh.toStringAsFixed(1)} units "
+          "Monthly total: ${data.monthlyTotalKwh.toStringAsFixed(1)} kWh "
           "($currencySymbol${monthBill.toStringAsFixed(2)}).";
       break;
 
     case Intent.weeklyReport:
-      String weeklyLines = "";
-      if (data.weeklyBuckets.isNotEmpty) {
-        final buckets = data.weeklyBuckets.cast<BucketData>();
-        weeklyLines = buckets.map((b) => "${b.label}: ${b.total.toStringAsFixed(2)} kWh").join(" | ");
-      }
       final avgKwh = data.dailyAverageKwh.toStringAsFixed(2);
-      baseResponse = "📊 Weekly Report: $weeklyLines. "
+      baseResponse = "Weekly Report: "
           "Daily average: $avgKwh kWh/day. "
-          "Monthly total so far: ${data.monthlyTotalKwh.toStringAsFixed(1)} units.";
+          "Monthly total: ${data.monthlyTotalKwh.toStringAsFixed(1)} kWh.";
       break;
 
     case Intent.monthlyReport:
       final monthBill = calculateSlabBill(data.monthlyTotalKwh, tariff: data.tariff);
       final dt = DateTime.now();
       final prediction = predictMonthlyBill(data.monthlyTotalKwh, dt.day, getDaysInMonth(dt.year, dt.month), tariff: data.tariff);
-      String monthlyLines = "";
-      if (data.monthlyBuckets.isNotEmpty) {
-        final buckets = data.monthlyBuckets.cast<BucketData>();
-        final withData = buckets.where((b) => b.total > 0).toList();
-        monthlyLines = withData.map((b) => "${b.label}: ${b.total.toStringAsFixed(1)} kWh").join(" | ");
-      }
-      baseResponse = "📊 Monthly Report: "
-          "${monthlyLines.isNotEmpty ? '$monthlyLines. ' : ''}"
-          "This month: ${data.monthlyTotalKwh.toStringAsFixed(1)} units, "
+      baseResponse = "Monthly Report: "
+          "This month: ${data.monthlyTotalKwh.toStringAsFixed(1)} kWh, "
           "bill: $currencySymbol${monthBill.toStringAsFixed(2)}. "
-          "Projected end-of-month: $currencySymbol${prediction.predictedBill.toStringAsFixed(2)}.";
+          "Projected: $currencySymbol${prediction.predictedBill.toStringAsFixed(2)}.";
       break;
 
     case Intent.highestConsumption:
@@ -278,13 +260,172 @@ String buildResponse(
       baseResponse = pickRandomVariant(AssistantConfig.variants['unknown']!);
   }
 
-  if (severity == Severity.warning) {
-    baseResponse += " ⚠️ Your usage is higher than your weekly average.";
-  } else if (severity == Severity.alert) {
-    baseResponse += " 🚨 Warning: An unusual power spike has been detected.";
-  } else if (severity == Severity.normal &&
-      (intent == Intent.dailyUsage || intent == Intent.realTime)) {
-    baseResponse += " ${pickRandomVariant(AssistantConfig.variants['normalUsage']!)}";
+  return trimToWordLimit(baseResponse, AssistantConfig.tone['maxWords']);
+}
+
+String buildWaterResponse(
+    Intent intent,
+    double confidence,
+    Severity severity,
+    WaterMetrics data,
+    String? timeReference,
+    String? contextTopic
+) {
+  if (intent == Intent.unknown || confidence < AssistantConfig.confidenceThreshold) {
+    return pickRandomVariant(AssistantConfig.variants['unknown']!);
+  }
+
+  String baseResponse = "";
+  final currencySymbol = AssistantConfig.tone['currencySymbol'];
+
+  switch (intent) {
+    case Intent.realTime:
+      final lpm = data.currentFlowLpm.toStringAsFixed(1);
+      final currentBillAmount = calculateWaterBill(data.monthlyTotalL, tariff: data.tariff);
+      baseResponse = "Flow is $lpm L/min. "
+          "Current bill is $currencySymbol${currentBillAmount.toStringAsFixed(2)} "
+          "for ${data.monthlyTotalL.toStringAsFixed(1)} Liters.";
+      break;
+
+    case Intent.dailyUsage:
+      baseResponse = "Today's usage is ${data.todayUsageL.toStringAsFixed(1)} L.";
+      if (timeReference == "yesterday") {
+        baseResponse = "Yesterday's usage was ${data.yesterdayUsageL.toStringAsFixed(1)} L.";
+      } else if (data.currentFlowLpm > 0) {
+        baseResponse += " Current flow: ${data.currentFlowLpm.toStringAsFixed(1)} L/min.";
+      }
+      break;
+
+    case Intent.weeklyUsage:
+      baseResponse = "Daily average: ${data.dailyAverageL.toStringAsFixed(1)} L. "
+          "Weekly average: ${data.weeklyAverageL.toStringAsFixed(1)} L.";
+      break;
+
+    case Intent.monthlyUsage:
+      final currentBillAmount = calculateWaterBill(data.monthlyTotalL, tariff: data.tariff);
+      baseResponse = "Monthly usage: ${data.monthlyTotalL.toStringAsFixed(1)} L. "
+          "Bill: $currencySymbol${currentBillAmount.toStringAsFixed(2)}.";
+      break;
+
+    case Intent.currentBill:
+      final currentBillAmount = calculateWaterBill(data.monthlyTotalL, tariff: data.tariff);
+      baseResponse = "Current bill: $currencySymbol${currentBillAmount.toStringAsFixed(2)} "
+          "(${data.monthlyTotalL.toStringAsFixed(1)} L).";
+      break;
+
+    case Intent.billPrediction:
+      final dt = DateTime.now();
+      final prediction = predictWaterBill(data.monthlyTotalL, dt.day, getDaysInMonth(dt.year, dt.month), tariff: data.tariff);
+      baseResponse = "Expected monthly bill: $currencySymbol${prediction.predictedBill.toStringAsFixed(2)}.";
+      break;
+
+    case Intent.comparison:
+      if (contextTopic == "daily") {
+        final diffDaily = data.todayUsageL - data.yesterdayUsageL;
+        if (diffDaily >= 0) {
+          baseResponse = "You used ${diffDaily.toStringAsFixed(1)} MORE Liters today.";
+        } else {
+          baseResponse = "You used ${diffDaily.abs().toStringAsFixed(1)} FEWER Liters today.";
+        }
+      } else {
+        final diff = data.monthlyTotalL - data.lastMonthTotalL;
+        if (diff >= 0) {
+          baseResponse = "You used ${diff.toStringAsFixed(1)} MORE Liters this month.";
+        } else {
+          baseResponse = "You used ${diff.abs().toStringAsFixed(1)} FEWER Liters this month.";
+        }
+      }
+      break;
+
+    case Intent.roomComparison:
+      final roomsList = [
+        {'name': "Bedroom", 'flow': data.rooms.bedroomFlowLpm},
+        {'name': "Kitchen", 'flow': data.rooms.kitchenFlowLpm},
+        {'name': "Living Room", 'flow': data.rooms.livingRoomFlowLpm}
+      ];
+      roomsList.sort((a, b) => (b['flow'] as double).compareTo(a['flow'] as double));
+      final highestRoom = roomsList.first;
+      final lowestRoom = roomsList.last;
+
+      if (highestRoom['flow'] == 0 && lowestRoom['flow'] == 0) {
+        baseResponse = "Currently, all monitored room taps are completely off.";
+      } else if (contextTopic == "least" || contextTopic == "less") {
+        baseResponse = "The ${lowestRoom['name']} tap is draining the least water: "
+            "${(lowestRoom['flow'] as double).toStringAsFixed(1)} L/min.";
+      } else {
+        baseResponse = "The ${highestRoom['name']} tap is draining the most water right now: "
+            "${(highestRoom['flow'] as double).toStringAsFixed(1)} L/min.";
+      }
+      break;
+
+    case Intent.peakHour:
+      if (data.peakTime.isNotEmpty) {
+        baseResponse = "Peak usage: ${data.peakTime} in ${data.peakRoom}.";
+      } else {
+        baseResponse = "Busiest day: ${data.peakDay}.";
+      }
+      break;
+
+    case Intent.savingsTips:
+      baseResponse = "Here are some water tips: ";
+      break;
+
+    case Intent.powerControl:
+      if (contextTopic == "all_on") baseResponse = "Motor pump turned ON.";
+      else if (contextTopic == "all_off") baseResponse = "Motor pump turned OFF.";
+      else if (contextTopic == "bedroom_on" || contextTopic == "living_on" || contextTopic == "kitchen_on") baseResponse = "Water outlet opened.";
+      else if (contextTopic == "bedroom_off" || contextTopic == "living_off" || contextTopic == "kitchen_off") baseResponse = "Water outlet closed.";
+      else baseResponse = "Valve state updated.";
+      break;
+
+    // ── NEW REPORT INTENTS ─────────────────────────────────────────────────
+
+    case Intent.dailyReport:
+      final lpm = data.currentFlowLpm.toStringAsFixed(1);
+      final monthBill = calculateWaterBill(data.monthlyTotalL, tariff: data.tariff);
+      baseResponse = "📊 Daily Report: Flow $lpm L/min | Today ${data.todayUsageL.toStringAsFixed(1)} L | Month $currencySymbol${monthBill.toStringAsFixed(2)}.";
+      break;
+
+    case Intent.weeklyReport:
+      final avgL = data.dailyAverageL.toStringAsFixed(1);
+      baseResponse = "📊 Weekly Water Report: "
+          "Daily average: $avgL Liters/day. "
+          "Monthly total so far: ${data.monthlyTotalL.toStringAsFixed(1)} Liters.";
+      break;
+
+    case Intent.monthlyReport:
+      final monthBill = calculateWaterBill(data.monthlyTotalL, tariff: data.tariff);
+      final dt = DateTime.now();
+      final prediction = predictWaterBill(data.monthlyTotalL, dt.day, getDaysInMonth(dt.year, dt.month), tariff: data.tariff);
+      baseResponse = "📊 Monthly Report: ${data.monthlyTotalL.toStringAsFixed(1)} L ($currencySymbol${monthBill.toStringAsFixed(2)}). "
+          "Projected: $currencySymbol${prediction.predictedBill.toStringAsFixed(2)}.";
+      break;
+
+    case Intent.highestConsumption:
+      baseResponse = "Check your analytics graph to review your highest consuming months.";
+      break;
+
+    case Intent.averageConsumption:
+      baseResponse = "Your average daily water consumption this month is "
+          "${data.dailyAverageL.toStringAsFixed(1)} Liters/day. "
+          "Weekly average: ${data.weeklyAverageL.toStringAsFixed(1)} Liters. "
+          "Monthly total: ${data.monthlyTotalL.toStringAsFixed(1)} Liters.";
+      break;
+    
+    case Intent.greeting:
+      baseResponse = pickRandomVariant(AssistantConfig.variants['greeting']!);
+      break;
+
+    case Intent.thanks:
+      baseResponse = pickRandomVariant(AssistantConfig.variants['thanks']!);
+      break;
+
+    case Intent.bye:
+      baseResponse = pickRandomVariant(AssistantConfig.variants['bye']!);
+      break;
+
+    default:
+      baseResponse = pickRandomVariant(AssistantConfig.variants['unknown']!);
   }
 
   return trimToWordLimit(baseResponse, AssistantConfig.tone['maxWords']);

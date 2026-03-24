@@ -26,10 +26,27 @@ class BillCard extends StatelessWidget {
     return {'slabNumber': 6, 'rate': 8.70};
   }
 
+  Map<String, dynamic> _getWaterSlab(double liters) {
+    double kl = liters / 1000.0;
+    if (kl <= 5) return {'slabNumber': '1 (0-5 KL)', 'rate': '14.41/KL'};
+    if (kl <= 10) return {'slabNumber': '2 (5-10 KL)', 'rate': '14.41/KL'};
+    if (kl <= 15) return {'slabNumber': '3 (10-15 KL)', 'rate': '15.51/KL'};
+    if (kl <= 20) return {'slabNumber': '4 (15-20 KL)', 'rate': '16.62 flat'};
+    if (kl <= 25) return {'slabNumber': '5 (20-25 KL)', 'rate': '17.72 flat'};
+    if (kl <= 30) return {'slabNumber': '6 (25-30 KL)', 'rate': '19.92 flat'};
+    if (kl <= 40) return {'slabNumber': '7 (30-40 KL)', 'rate': '23.23 flat'};
+    if (kl <= 50) return {'slabNumber': '8 (40-50 KL)', 'rate': '25.44 flat'};
+    return {'slabNumber': '9 (>50 KL)', 'rate': '54.10/KL'};
+  }
+
   @override
   Widget build(BuildContext context) {
-    final currentBill = calculateSlabBill(currentUnits, tariff: tariff);
-    final slab = _getCurrentSlab(currentUnits);
+    final currentBill = isWater 
+        ? calculateWaterBill(currentUnits) 
+        : calculateSlabBill(currentUnits, tariff: tariff);
+    final slab = isWater 
+        ? _getWaterSlab(currentUnits) 
+        : _getCurrentSlab(currentUnits);
     final appColors = context.appColors;
 
     if (compact) {

@@ -42,10 +42,14 @@ class EnergyDataProvider extends ChangeNotifier {
     return findPeakUsage(_deltas);
   }
 
+  Map<String, dynamic> _roomsData = {};
+  Map<String, dynamic> get roomsData => _roomsData;
+
   dynamic _tariffData;
   
   StreamSubscription? _liveSubscription;
   StreamSubscription? _controlSubscription;
+  StreamSubscription? _roomsSubscription;
 
   bool _isLoading = true;
   bool get isLoading => _isLoading;
@@ -109,6 +113,13 @@ class EnergyDataProvider extends ChangeNotifier {
           notifyListeners();
         }
       });
+
+      // Subscribe to simplified room-level state (AGGREGATED)
+      _roomsSubscription = _firebaseService.getRoomsStream().listen((data) {
+        _roomsData = data;
+        notifyListeners();
+      });
+    } catch (e) {
     } catch (e) {
       print("Error fetching from Firebase: $e");
       // Continue with mock data already initialized
@@ -301,47 +312,13 @@ class EnergyDataProvider extends ChangeNotifier {
     );
   }
 
-  Future<void> toggleRoom(String room, bool isOn) async {
-    print("EnergyDataProvider: Toggling $room to $isOn");
-
-    // ── INSTANT UI UPDATE (before Firebase) ──────────────────────────────
-    // Create a dummy liveData if it doesn't exist yet so the toggle works
-    // even before the first ESP32 telemetry arrives.
-    _liveData ??= EnergyLog(
-      timestamp: DateTime.now().toString(),
-      power: {'bedroom': 0.0, 'livingRoom': 0.0, 'kitchen': 0.0, 'total': 0.0},
-      energy: {'bedroom': 0.0, 'livingRoom': 0.0, 'kitchen': 0.0},
-      switches: {'bedroom': false, 'lrLight': false, 'lrTV': false, 'kitchen': false},
-    );
-
-    if (room == 'bedroom') _liveData!.switches['bedroom'] = isOn;
-    if (room == 'living') {
-      _liveData!.switches['lrLight'] = isOn;
-      _liveData!.switches['lrTV'] = isOn;
-    }
-    if (room == 'kitchen') _liveData!.switches['kitchen'] = isOn;
-    notifyListeners(); // UI updates immediately
-
-    // ── THEN PUSH TO FIREBASE ─────────────────────────────────────────────
+  Future<void> toggleRoom(String roomKey, bool isOn) async {
+    print("EnergyDataProvider: Toggling room $roomKey to $isOn");
+    // HomeSimulation will listen to this change and update all internal device switches
     try {
-      if (room == 'bedroom') {
-        await _firebaseService.updateControlState('bedroom', isOn);
-      } else if (room == 'living') {
-        await _firebaseService.updateMultipleStates({'lrLight': isOn, 'lrTV': isOn});
-      } else if (room == 'kitchen') {
-        await _firebaseService.updateControlState('kitchen', isOn);
-      }
-      print("EnergyDataProvider: Firebase updated for $room -> $isOn");
+      await _firebaseService.updateRoomStatus(roomKey, isOn);
     } catch (e) {
-      print("EnergyDataProvider Error: Failed to push toggle for $room: $e");
-      // Revert UI on failure
-      if (room == 'bedroom') _liveData!.switches['bedroom'] = !isOn;
-      if (room == 'living') {
-        _liveData!.switches['lrLight'] = !isOn;
-        _liveData!.switches['lrTV'] = !isOn;
-      }
-      if (room == 'kitchen') _liveData!.switches['kitchen'] = !isOn;
-      notifyListeners();
+      print("EnergyDataProvider Error: Failed to update room status: $e");
     }
   }
 
@@ -349,6 +326,7 @@ class EnergyDataProvider extends ChangeNotifier {
   void dispose() {
     _liveSubscription?.cancel();
     _controlSubscription?.cancel();
+    _roomsSubscription?.cancel();
     super.dispose();
   }
 }

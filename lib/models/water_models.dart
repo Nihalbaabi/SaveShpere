@@ -14,6 +14,10 @@ class RoomWaterMetrics {
 
 class WaterMetrics {
   final double currentFlowLpm;
+  final double tankLevel;          // current liters in tank
+  final double tankCapacity;       // max liters
+  final bool motorStatus;          // is motor (refill) ON?
+  final bool outletOn;             // is outlet (drain) ON?
   final double todayUsageL;
   final double yesterdayUsageL;
   final double weeklyAverageL;
@@ -33,6 +37,10 @@ class WaterMetrics {
 
   WaterMetrics({
     required this.currentFlowLpm,
+    this.tankLevel = 1000,
+    this.tankCapacity = 1000,
+    this.motorStatus = false,
+    this.outletOn = false,
     required this.todayUsageL,
     required this.yesterdayUsageL,
     required this.weeklyAverageL,
@@ -50,4 +58,7 @@ class WaterMetrics {
     required this.dailyBuckets,
     required this.roomMonthlyWater,
   });
+
+  double get tankPercent => (tankLevel / tankCapacity).clamp(0.0, 1.0);
+  bool get isTankLow => tankLevel < 250;
 }

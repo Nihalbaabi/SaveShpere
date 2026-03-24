@@ -3,6 +3,7 @@ import 'package:speech_to_text/speech_to_text.dart';
 import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/energy_models.dart';
+import '../models/water_models.dart';
 import '../models/assistant.dart';
 import '../services/ai/time_parser.dart';
 import '../services/ai/intent_detector.dart';
@@ -13,6 +14,7 @@ import '../services/ai/context_manager.dart';
 import '../services/voice_service.dart';
 import 'theme_provider.dart';
 import 'energy_provider.dart';
+import 'water_provider.dart';
 
 class ChatMessage {
   final String id;
@@ -97,7 +99,7 @@ class AssistantProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void startListening(EnergyDataProvider energyProvider, ThemeProvider themeProvider) async {
+  void startListening(EnergyDataProvider energyProvider, WaterDataProvider waterProvider, ThemeProvider themeProvider) async {
     final data = energyProvider.energyMetrics;
     if (data == null) return;
     
@@ -124,7 +126,7 @@ class AssistantProvider extends ChangeNotifier {
           
           await _speechToText.stop();
           // Process the recognized query
-          await processQuery(_lastTranscript, energyProvider, themeProvider);
+          await processQuery(_lastTranscript, energyProvider, waterProvider, themeProvider);
         }
       },
       listenFor: const Duration(seconds: 10),
@@ -135,7 +137,7 @@ class AssistantProvider extends ChangeNotifier {
     );
   }
 
-  void stopListening(EnergyDataProvider energyProvider, ThemeProvider themeProvider) async {
+  void stopListening(EnergyDataProvider energyProvider, WaterDataProvider waterProvider, ThemeProvider themeProvider) async {
     await _speechToText.stop();
     
     // If we have words, trigger processing manually if the onResult didn't already
@@ -143,7 +145,7 @@ class AssistantProvider extends ChangeNotifier {
        final transcript = _lastTranscript;
        _state = 'processing';
        notifyListeners();
-       await processQuery(transcript, energyProvider, themeProvider);
+       await processQuery(transcript, energyProvider, waterProvider, themeProvider);
     } else {
       _state = 'idle';
       _lastTranscript = "";
@@ -151,12 +153,16 @@ class AssistantProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> processQuery(String query, EnergyDataProvider energyProvider, ThemeProvider themeProvider) async {
-    final data = energyProvider.energyMetrics;
-    if (data == null) return;
+  Future<void> processQuery(String query, EnergyDataProvider energyProvider, WaterDataProvider waterProvider, ThemeProvider themeProvider) async {
+    final energyData = energyProvider.energyMetrics;
+    final waterData = waterProvider.waterMetrics;
+    if (energyData == null || waterData == null) return;
 
     _state = 'processing';
     notifyListeners();
+
+    final lowerMsg = query.toLowerCase();
+    bool isWaterReq = lowerMsg.contains("water") || lowerMsg.contains("leak") || lowerMsg.contains("tank") || lowerMsg.contains("flow") || lowerMsg.contains("liter") || lowerMsg.contains("pump") || lowerMsg.contains("motor");
 
     // 1. Time Parsing
     final timeRef = parseTimeReference(query);
@@ -174,11 +180,10 @@ class AssistantProvider extends ChangeNotifier {
     }
 
     // 4 & 5. Data & Anomaly Engine
-    final severity = detectAnomaly(data);
+    final severity = isWaterReq ? detectWaterAnomaly(waterData) : detectAnomaly(energyData);
 
     // Topic Modifier detection (e.g. least vs most, dark vs light, daily vs monthly)
     String? topicModifier;
-    final lowerMsg = query.toLowerCase();
     if (lowerMsg.contains("least") || lowerMsg.contains("less")) {
         topicModifier = "least";
     } else if (activeIntent == Intent.comparison) {
@@ -203,37 +208,70 @@ class AssistantProvider extends ChangeNotifier {
 
         if (targetAll) {
             await energyProvider.toggleRoom('bedroom', state);
-            await energyProvider.toggleRoom('living', state);
+            await energyProvider.toggleRoom('livingRoom', state);
             await energyProvider.toggleRoom('kitchen', state);
             topicModifier = state ? "all_on" : "all_off";
         } else if (lowerMsg.contains("bedroom")) {
             await energyProvider.toggleRoom('bedroom', state);
             topicModifier = state ? "bedroom_on" : "bedroom_off";
         } else if (lowerMsg.contains("living")) {
-            await energyProvider.toggleRoom('living', state);
+            await energyProvider.toggleRoom('livingRoom', state);
             topicModifier = state ? "living_on" : "living_off";
         } else if (lowerMsg.contains("kitchen")) {
             await energyProvider.toggleRoom('kitchen', state);
             topicModifier = state ? "kitchen_on" : "kitchen_off";
         }
     }
+    
+    // Water Power Control
+    if (isWaterReq && activeIntent == Intent.powerControl) {
+        if (lowerMsg.contains("motor") || lowerMsg.contains("pump") || lowerMsg.contains("tank")) {
+            await waterProvider.toggleMotor();
+            final isOff = lowerMsg.contains("off") || lowerMsg.contains("shutdown") || lowerMsg.contains("stop");
+            topicModifier = !isOff ? "all_on" : "all_off";
+        }
+    }
+
+    // Override severity to normal globally as the user explicitly requested NO visual icons/warnings for both Energy & Water.
+    final displaySeverity = Severity.normal;
 
     // 6. Response Construction & enforce wording limits
-    final text = buildResponse(
-      activeIntent,
-      confidence,
-      severity,
-      data,
-      timeRef ?? _context.lastTimeReference,
-      topicModifier,
-    );
+    String text;
+    if (isWaterReq) {
+      text = buildWaterResponse(
+        activeIntent,
+        confidence,
+        displaySeverity,
+        waterData,
+        timeRef ?? _context.lastTimeReference,
+        topicModifier,
+      );
+    } else {
+      text = buildResponse(
+        activeIntent,
+        confidence,
+        displaySeverity,
+        energyData,
+        timeRef ?? _context.lastTimeReference,
+        topicModifier,
+      );
+    }
 
     // 7. Suggestions
-    final suggestions = generateSuggestions(
-      intent: activeIntent,
-      severity: severity,
-      data: data,
-    );
+    List<String> suggestions;
+    if (isWaterReq) {
+      suggestions = generateWaterSuggestions(
+        intent: activeIntent,
+        severity: severity,
+        data: waterData,
+      );
+    } else {
+      suggestions = generateSuggestions(
+        intent: activeIntent,
+        severity: severity,
+        data: energyData,
+      );
+    }
 
     // 8. Update context
     _context = updateContext(_context, activeIntent, timeRef);
@@ -250,7 +288,7 @@ class AssistantProvider extends ChangeNotifier {
       text: text,
       intent: activeIntent,
       confidence: confidence,
-      severity: severity,
+      severity: displaySeverity,
       suggestions: suggestions,
       action: action,
     );

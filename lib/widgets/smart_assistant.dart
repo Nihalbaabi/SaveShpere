@@ -4,6 +4,7 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/assistant_provider.dart';
 import '../providers/theme_provider.dart';
 import '../providers/energy_provider.dart';
+import '../providers/water_provider.dart';
 import '../models/energy_models.dart';
 import '../models/assistant.dart';
 import '../theme/app_theme.dart';
@@ -66,7 +67,8 @@ class _SmartAssistantWidgetState extends State<SmartAssistantWidget> with Single
     final provider = Provider.of<AssistantProvider>(context, listen: false);
     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
     final energyProvider = Provider.of<EnergyDataProvider>(context, listen: false);
-    provider.processQuery(query, energyProvider, themeProvider);
+    final waterProvider = Provider.of<WaterDataProvider>(context, listen: false);
+    provider.processQuery(query, energyProvider, waterProvider, themeProvider);
   }
 
   void _toggleAssistant() {
@@ -274,10 +276,11 @@ class _SmartAssistantWidgetState extends State<SmartAssistantWidget> with Single
                   onTap: () {
                     final themeProvider = Provider.of<ThemeProvider>(context, listen: false);
                     final energyProvider = Provider.of<EnergyDataProvider>(context, listen: false);
+                    final waterProvider = Provider.of<WaterDataProvider>(context, listen: false);
                     if (provider.state == 'listening') {
-                      provider.stopListening(energyProvider, themeProvider);
+                      provider.stopListening(energyProvider, waterProvider, themeProvider);
                     } else {
-                      provider.startListening(energyProvider, themeProvider);
+                      provider.startListening(energyProvider, waterProvider, themeProvider);
                     }
                   },
                   child: AnimatedContainer(
@@ -341,16 +344,6 @@ class _SmartAssistantWidgetState extends State<SmartAssistantWidget> with Single
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (!isUser && msg.responseMeta?.severity == Severity.alert)
-                  const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [Icon(LucideIcons.alertTriangle, size: 12, color: Colors.red), SizedBox(width: 4), Text("ALERT", style: TextStyle(color: Colors.red, fontSize: 10, fontWeight: FontWeight.bold))],
-                  ),
-                if (!isUser && msg.responseMeta?.severity == Severity.warning)
-                  const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [Icon(LucideIcons.alertTriangle, size: 12, color: Colors.orange), SizedBox(width: 4), Text("WARNING", style: TextStyle(color: Colors.orange, fontSize: 10, fontWeight: FontWeight.bold))],
-                  ),
                 Text(
                   msg.text,
                   style: TextStyle(
@@ -375,8 +368,6 @@ class _SmartAssistantWidgetState extends State<SmartAssistantWidget> with Single
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Icon(LucideIcons.shieldCheck, size: 14, color: Theme.of(context).primaryColor),
-                    const SizedBox(width: 6),
                     Expanded(child: Text(sug, style: TextStyle(fontSize: 11, color: appColors.mutedForeground))),
                   ],
                 ),

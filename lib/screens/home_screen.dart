@@ -3,9 +3,10 @@ import 'package:provider/provider.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../providers/energy_provider.dart';
 import '../providers/water_provider.dart';
+import '../models/water_models.dart';
+import '../services/billing_calculator.dart';
 import '../widgets/stat_card.dart';
 import '../widgets/bill_card.dart';
-import '../widgets/live_usage_chart.dart';
 import '../widgets/live_usage_chart.dart';
 import '../theme/app_theme.dart';
 import '../widgets/smart_assistant.dart';
@@ -241,10 +242,11 @@ class _HomeScreenState extends State<HomeScreen> {
               themeColor: AppTheme.electricGreen,
               isWater: false,
               rooms: [
-                {'name': 'Bedroom', 'icon': LucideIcons.bedDouble, 'value': metrics.rooms.bedroomPowerW, 'color': AppTheme.electricGreen, 'on': provider.liveData?.switches['bedroom'] ?? false},
-                {'name': 'Living', 'icon': LucideIcons.sofa, 'value': metrics.rooms.livingRoomPowerW, 'color': AppTheme.neonGreen, 'on': (provider.liveData?.switches['lrLight'] ?? false) || (provider.liveData?.switches['lrTV'] ?? false)},
-                {'name': 'Kitchen', 'icon': LucideIcons.utensils, 'value': metrics.rooms.kitchenPowerW, 'color': const Color(0xFF10B981), 'on': provider.liveData?.switches['kitchen'] ?? false},
+                {'id': 'bedroom', 'name': 'Bedroom', 'icon': LucideIcons.bedDouble, 'value': metrics.rooms.bedroomPowerW, 'color': AppTheme.electricGreen, 'on': provider.roomsData['bedroom']?['status'] ?? false},
+                {'id': 'livingRoom', 'name': 'Living', 'icon': LucideIcons.sofa, 'value': metrics.rooms.livingRoomPowerW, 'color': AppTheme.neonGreen, 'on': provider.roomsData['livingRoom']?['status'] ?? false},
+                {'id': 'kitchen', 'name': 'Kitchen', 'icon': LucideIcons.utensils, 'value': metrics.rooms.kitchenPowerW, 'color': const Color(0xFF10B981), 'on': provider.roomsData['kitchen']?['status'] ?? false},
               ],
+              onToggle: (id, val) => provider.toggleRoom(id, val),
             ),
           ],
         );
@@ -258,19 +260,80 @@ class _HomeScreenState extends State<HomeScreen> {
       builder: (context, provider, child) {
         if (provider.isLoading) return _buildLoading(Colors.lightBlue);
         final metrics = provider.waterMetrics;
-        if (metrics == null) return _buildEmpty();
+        if (metrics == null) return _buildWaterEmptyState(provider);
 
         return Column(
           children: [
+            // ─── 1. Low Tank Alert ────────────────────────────────────────
+            if (metrics.isTankLow)
+              _buildWaterAlert(
+                icon: '⚠️',
+                title: 'Water Tank Low',
+                message:
+                    'Tank is below 250L (${metrics.tankLevel.toStringAsFixed(0)}L remaining). Please turn ON the motor.',
+                color: const Color(0xFFEF4444),
+                bgColor: const Color(0xFFEF4444).withOpacity(0.08),
+              ),
+
+            // ─── Leak Alert ───────────────────────────────────────────────
+            if (provider.leakDetected)
+              _buildWaterAlert(
+                icon: '🚨',
+                title: 'Leakage Detected!',
+                message:
+                    'Flow rate: ${provider.liveWater?.flowRate.toStringAsFixed(1) ?? "0.0"} L/min continuously for over 2 minutes! Approx ${provider.leakedWaterL.toStringAsFixed(1)}L wasted so far.',
+                color: const Color(0xFFF97316),
+                bgColor: const Color(0xFFF97316).withOpacity(0.08),
+              ),
+
+            const SizedBox(height: 4),
+
+            // ─── 2. Tank Level Gauge ──────────────────────────────────────
+            _buildTankGauge(context, metrics, provider),
+            const SizedBox(height: 16),
+
+            // ─── Flow Rate + Today's Usage ────────────────────────────────
+            Row(
+              children: [
+                Expanded(
+                  child: StatCard(
+                    title: 'Current Flow Rate',
+                    value:
+                        '${metrics.currentFlowLpm.toStringAsFixed(1)} L/min',
+                    subtitle: metrics.outletOn
+                        ? 'Draining'
+                        : (metrics.motorStatus ? 'Motor filling' : 'Idle'),
+                    icon: LucideIcons.droplets,
+                    color: StatColor.blue,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: StatCard(
+                    title: "Today's Usage",
+                    value:
+                        '${metrics.todayUsageL.toStringAsFixed(1)} L',
+                    subtitle: 'Daily water consumed',
+                    icon: LucideIcons.calendar,
+                    color: StatColor.teal,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // ─── 2c. Usage Trend Chart ──────────────────────────────────
             LiveUsageChart(
               data: provider.hourlyLive,
               isWater: true,
               themeColor: Colors.lightBlue,
               title: 'Water Flow Profile',
-              subtitle: 'Real-time total hourly usage',
-              unit: 'Liters',
+              subtitle: 'Hourly usage trend (Liters)',
+              unit: 'L',
             ),
             const SizedBox(height: 16),
+
+            // ─── Total Water + Sleep Mode in same row ────────────────────
             LayoutBuilder(
               builder: (context, constraints) {
                 if (constraints.maxWidth > 600) {
@@ -278,18 +341,18 @@ class _HomeScreenState extends State<HomeScreen> {
                     children: [
                       Expanded(
                         child: StatCard(
-                          title: "Total Water Used",
-                          value: "${metrics.monthlyTotalL.toStringAsFixed(1)} Liters",
-                          subtitle: "This Month",
+                          title: 'Total Water Used',
+                          value:
+                              '${metrics.monthlyTotalL.toStringAsFixed(1)} L',
+                          subtitle: 'This Month',
                           icon: LucideIcons.droplet,
                           color: StatColor.blue,
                         ),
                       ),
                       const SizedBox(width: 16),
-                      // Since water isn't fully integrated with the dynamic bill, we just
-                      // pass a dummy tariff for the bill estimation, or zero
                       Expanded(
-                        child: _buildBillSection(metrics.monthlyTotalL, null, true),
+                        child: _buildBillSection(
+                            metrics.monthlyTotalL, null, true),
                       ),
                     ],
                   );
@@ -297,11 +360,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 return Column(
                   children: [
                     StatCard(
-                      title: "Total Water Used",
-                      value: "${metrics.monthlyTotalL.toStringAsFixed(1)} Liters",
-                      subtitle: "This Month",
+                      title: 'Total Water Used',
+                      value: '${metrics.monthlyTotalL.toStringAsFixed(1)} L',
+                      subtitle: 'This Month',
                       icon: LucideIcons.droplet,
-                      color: StatColor.blue, // Requires blue styling in StatCard but teal fits for now.
+                      color: StatColor.blue,
                     ),
                     const SizedBox(height: 16),
                     _buildBillSection(metrics.monthlyTotalL, null, true),
@@ -310,24 +373,543 @@ class _HomeScreenState extends State<HomeScreen> {
               },
             ),
             const SizedBox(height: 16),
-            _buildMonthlyInsights(metrics.peakTime, metrics.peakRoom, true),
+
+            // ─── 3. Sleep Mode Toggle ─────────────────────────────────────
+            _buildSleepModeCard(context, provider),
             const SizedBox(height: 16),
-            _buildLiveUsageSection(
-              title: "Current Water Flow",
-              subtitle: "Live water usage across all zones",
-              totalValue: metrics.currentFlowLpm,
-              unit: "LPM",
-              themeColor: Colors.lightBlue,
-              isWater: true,
-              rooms: [
-                {'name': 'Bathroom', 'icon': LucideIcons.bath, 'value': metrics.rooms.bedroomFlowLpm, 'color': Colors.lightBlue, 'on': metrics.rooms.bedroomFlowLpm > 0.1},
-                {'name': 'Garden', 'icon': LucideIcons.sprout, 'value': metrics.rooms.livingRoomFlowLpm, 'color': Colors.blueAccent, 'on': metrics.rooms.livingRoomFlowLpm > 0.1},
-                {'name': 'Kitchen', 'icon': LucideIcons.utensils, 'value': metrics.rooms.kitchenFlowLpm, 'color': Colors.cyan, 'on': metrics.rooms.kitchenFlowLpm > 0.1},
-              ],
-            ),
+
+            // ─── 2d. Consumption Insights ────────────────────────────────
+            _buildWaterInsights(metrics),
           ],
         );
       },
+    );
+  }
+
+  /// Alert banner (low water / leak detected)
+  Widget _buildWaterAlert({
+    required String icon,
+    required String title,
+    required String message,
+    required Color color,
+    required Color bgColor,
+  }) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.4), width: 1.5),
+      ),
+      child: Row(
+        children: [
+          Text(icon, style: const TextStyle(fontSize: 24)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title,
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: color,
+                        fontSize: 14)),
+                const SizedBox(height: 2),
+                Text(message,
+                    style: TextStyle(
+                        color: color.withOpacity(0.85), fontSize: 12)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Animated water tank gauge
+  Widget _buildTankGauge(
+      BuildContext context, WaterMetrics metrics, WaterDataProvider provider) {
+    final appColors = context.appColors;
+    final pct = metrics.tankPercent;
+    final Color fillColor = pct < 0.25
+        ? const Color(0xFFEF4444) // red
+        : pct < 0.5
+            ? const Color(0xFFF59E0B) // amber
+            : const Color(0xFF3B82F6); // blue
+    final Color fillColorEnd = pct < 0.25
+        ? const Color(0xFFF87171)
+        : pct < 0.5
+            ? const Color(0xFFFBBF24)
+            : const Color(0xFF06B6D4); // cyan
+
+    return Container(
+      decoration: BoxDecoration(
+        color: appColors.card,
+        borderRadius: BorderRadius.circular(24),
+        border:
+            Border.all(color: appColors.border.withOpacity(0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Colors.lightBlue.withOpacity(0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(LucideIcons.droplets,
+                    size: 20, color: Colors.lightBlue),
+              ),
+              const SizedBox(width: 12),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Water Tank Level',
+                      style: TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: appColors.foreground,
+                          letterSpacing: -0.5)),
+                  Text('Capacity: 1000 L',
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: appColors.mutedForeground)),
+                ],
+              ),
+              const Spacer(),
+              // Motor toggle button
+              GestureDetector(
+                onTap: () => provider.toggleMotor(),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 300),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: metrics.motorStatus
+                        ? Colors.lightBlue.withOpacity(0.15)
+                        : appColors.secondary,
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                        color: metrics.motorStatus
+                            ? Colors.lightBlue.withOpacity(0.5)
+                            : appColors.border,
+                        width: 1.5),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(LucideIcons.refreshCw,
+                          size: 14,
+                          color: metrics.motorStatus
+                              ? Colors.lightBlue
+                              : appColors.mutedForeground),
+                      const SizedBox(width: 6),
+                      Text(
+                        metrics.motorStatus ? 'Motor ON' : 'Motor OFF',
+                        style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.bold,
+                            color: metrics.motorStatus
+                                ? Colors.lightBlue
+                                : appColors.mutedForeground),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 22),
+
+          // Tank visual
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              // Bar chart representation
+              Expanded(
+                flex: 2,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          '${metrics.tankLevel.toStringAsFixed(0)} L',
+                          style: TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.bold,
+                              color: fillColor,
+                              fontFamily: 'JetBrains Mono',
+                              letterSpacing: -1.5),
+                        ),
+                        Text(
+                          '${(pct * 100).toStringAsFixed(0)}%',
+                          style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: appColors.mutedForeground),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    // Progress bar
+                    Container(
+                      height: 20,
+                      decoration: BoxDecoration(
+                        color: appColors.secondary,
+                        borderRadius: BorderRadius.circular(100),
+                      ),
+                      child: FractionallySizedBox(
+                        alignment: Alignment.centerLeft,
+                        widthFactor: pct,
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 700),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [fillColor, fillColorEnd],
+                            ),
+                            borderRadius: BorderRadius.circular(100),
+                            boxShadow: [
+                              BoxShadow(
+                                  color: fillColor.withOpacity(0.4),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 2))
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    // Water marks
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text('0',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: appColors.mutedForeground)),
+                        Text('250L ⚠️',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: pct < 0.25
+                                    ? const Color(0xFFEF4444)
+                                    : appColors.mutedForeground)),
+                        Text('500L',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: appColors.mutedForeground)),
+                        Text('1000L',
+                            style: TextStyle(
+                                fontSize: 10,
+                                color: appColors.mutedForeground)),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 16),
+              // Status column
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _buildStatusPill(
+                      label: metrics.outletOn ? 'Draining' : 'Idle',
+                      color: metrics.outletOn
+                          ? const Color(0xFFEF4444)
+                          : const Color(0xFF6B7280),
+                      icon: metrics.outletOn
+                          ? LucideIcons.arrowDownCircle
+                          : LucideIcons.pause),
+                  const SizedBox(height: 6),
+                  _buildStatusPill(
+                      label: metrics.motorStatus ? 'Filling' : 'Motor Off',
+                      color: metrics.motorStatus
+                          ? Colors.lightBlue
+                          : const Color(0xFF6B7280),
+                      icon: metrics.motorStatus
+                          ? LucideIcons.refreshCw
+                          : LucideIcons.x),
+                ],
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildStatusPill(
+      {required String label, required Color color, required IconData icon}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(100),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 11, color: color),
+          const SizedBox(width: 4),
+          Text(label,
+              style: TextStyle(
+                  fontSize: 11, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+  }
+
+  /// Sleep Mode Card with toggle and leak info
+  Widget _buildSleepModeCard(BuildContext context, WaterDataProvider provider) {
+    final appColors = context.appColors;
+    final isSleep = provider.sleepMode;
+    final isLeaking = provider.leakDetected;
+    final flowSecs = provider.continuousFlowSeconds;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: appColors.card,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+            color: isSleep
+                ? const Color(0xFF6366F1).withOpacity(0.4)
+                : appColors.border.withOpacity(0.5),
+            width: 1.5),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
+        ],
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF6366F1).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(LucideIcons.moonStar,
+                    size: 20, color: Color(0xFF6366F1)),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Sleep Mode',
+                        style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: appColors.foreground)),
+                    Text(
+                        isSleep
+                            ? 'Monitoring for leaks…'
+                            : 'Toggle to detect overnight leaks',
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: appColors.mutedForeground)),
+                  ],
+                ),
+              ),
+              // Toggle switch
+              GestureDetector(
+                onTap: () => provider.toggleSleepMode(),
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 250),
+                  width: 50,
+                  height: 28,
+                  decoration: BoxDecoration(
+                    color: isSleep
+                        ? const Color(0xFF6366F1)
+                        : appColors.secondary,
+                    borderRadius: BorderRadius.circular(100),
+                    border: Border.all(
+                        color: isSleep
+                            ? const Color(0xFF6366F1)
+                            : appColors.border,
+                        width: 1.5),
+                  ),
+                  child: AnimatedAlign(
+                    duration: const Duration(milliseconds: 200),
+                    curve: Curves.easeInOut,
+                    alignment: isSleep
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 3),
+                      child: Container(
+                        width: 20,
+                        height: 20,
+                        decoration: const BoxDecoration(
+                            color: Colors.white, shape: BoxShape.circle),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          if (isSleep) ...
+            [
+              const SizedBox(height: 14),
+              Divider(
+                  color: appColors.border.withOpacity(0.4), height: 1),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Icon(
+                    isLeaking ? LucideIcons.alertTriangle : LucideIcons.shieldCheck,
+                    size: 16,
+                    color: isLeaking
+                        ? const Color(0xFFF97316)
+                        : const Color(0xFF22C55E),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    isLeaking
+                        ? '🚨 Leak! ${provider.leakedWaterL.toStringAsFixed(1)}L wasted'
+                        : flowSecs > 0
+                            ? 'Flow detected!'
+                            : 'No flow detected · Safe ✓',
+                    style: TextStyle(
+                        fontSize: 13,
+                        color: isLeaking
+                            ? const Color(0xFFF97316)
+                            : flowSecs > 0
+                                ? const Color(0xFFF59E0B)
+                                : const Color(0xFF22C55E),
+                        fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
+            ],
+        ],
+      ),
+    );
+  }
+
+  /// 2d. Consumption insights panel
+  Widget _buildWaterInsights(WaterMetrics metrics) {
+    final appColors = context.appColors;
+    final insightLines = <_Insight>[
+      if (metrics.peakTime.isNotEmpty)
+        _Insight(
+          icon: '🕐',
+          text: 'Peak usage at ${metrics.peakTime}',
+        ),
+      _Insight(
+        icon: '📊',
+        text:
+            'Average daily usage: ${metrics.dailyAverageL.toStringAsFixed(0)}L',
+      ),
+      _Insight(
+        icon: '📅',
+        text:
+            'Estimated monthly: ${metrics.estimatedMonthlyLiters.toStringAsFixed(0)}L',
+      ),
+      if (metrics.isTankLow)
+        _Insight(icon: '⚠️', text: 'Tank critically low — motor advised!'),
+    ];
+
+    return Container(
+      decoration: BoxDecoration(
+        color: appColors.card,
+        borderRadius: BorderRadius.circular(24),
+        border:
+            Border.all(color: appColors.border.withOpacity(0.5), width: 1.5),
+        boxShadow: [
+          BoxShadow(
+              color: Colors.black.withOpacity(0.02),
+              blurRadius: 20,
+              offset: const Offset(0, 10))
+        ],
+      ),
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(LucideIcons.sparkles,
+                  color: Colors.lightBlue, size: 20),
+              const SizedBox(width: 10),
+              Text(
+                'Consumption Insights',
+                style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: appColors.foreground,
+                    letterSpacing: -0.5),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...insightLines.map(
+            (i) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Row(
+                children: [
+                  Text(i.icon,
+                      style: const TextStyle(fontSize: 18)),
+                  const SizedBox(width: 10),
+                  Text(i.text,
+                      style: TextStyle(
+                          fontSize: 14,
+                          color: appColors.foreground,
+                          fontWeight: FontWeight.w500)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Fallback when provider has no data yet but for water
+  Widget _buildWaterEmptyState(WaterDataProvider provider) {
+    final appColors = context.appColors;
+    return Container(
+      padding: const EdgeInsets.all(32),
+      child: Column(
+        children: [
+          const Text('💧', style: TextStyle(fontSize: 48)),
+          const SizedBox(height: 16),
+          Text('Water data not available',
+              style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: appColors.foreground)),
+          const SizedBox(height: 8),
+          Text(
+              'Start the Home Simulation to send water data to Firebase.',
+              textAlign: TextAlign.center,
+              style:
+                  TextStyle(fontSize: 13, color: appColors.mutedForeground)),
+          const SizedBox(height: 20),
+          // Still show sleep mode toggle
+          _buildSleepModeCard(context, provider),
+        ],
+      ),
     );
   }
 
@@ -357,6 +939,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildBillSection(double units, dynamic tariff, bool isWater) {
     final appColors = context.appColors;
+    final validTariff = (tariff is TariffSlabs) ? tariff : defaultTariff;
+    
     return Container(
       decoration: BoxDecoration(
         color: appColors.card,
@@ -395,7 +979,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(height: 16),
           BillCard(
             currentUnits: units,
-            tariff: tariff,
+            tariff: validTariff,
             compact: true,
             isWater: isWater,
           ),
@@ -481,6 +1065,7 @@ class _HomeScreenState extends State<HomeScreen> {
     required Color themeColor,
     required bool isWater,
     required List<Map<String, dynamic>> rooms,
+    void Function(String id, bool val)? onToggle,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -562,6 +1147,7 @@ class _HomeScreenState extends State<HomeScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: rooms.map((r) => _buildRoomMetric(
+              id: r['id'] ?? r['name'],
               icon: r['icon'],
               name: r['name'],
               value: r['value'],
@@ -569,6 +1155,7 @@ class _HomeScreenState extends State<HomeScreen> {
               isOn: r['on'],
               themeColor: themeColor,
               unit: isWater ? "L" : "kW",
+              onToggle: onToggle,
             )).toList(),
           )
         ],
@@ -584,9 +1171,15 @@ class _HomeScreenState extends State<HomeScreen> {
     required bool isOn,
     required Color themeColor,
     required String unit,
+    String? id,
+    void Function(String id, bool val)? onToggle,
   }) {
     final appColors = context.appColors;
-    return Column(
+    return GestureDetector(
+      onTap: onToggle != null && id != null
+          ? () => onToggle(id, !isOn)
+          : null,
+      child: Column(
       children: [
         Stack(
           alignment: Alignment.topRight,
@@ -635,6 +1228,14 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
       ],
-    );
-  }
+    ),
+  );
+}
+}
+
+/// Simple data class for water insight list items
+class _Insight {
+  final String icon;
+  final String text;
+  const _Insight({required this.icon, required this.text});
 }

@@ -36,6 +36,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     'surcharge': TextEditingController(),
   };
 
+  final Map<String, TextEditingController> _waterTariffControllers = {
+    's1': TextEditingController(),
+    's2': TextEditingController(),
+    's3': TextEditingController(),
+    's4': TextEditingController(),
+    's5': TextEditingController(),
+    's6': TextEditingController(),
+    's7': TextEditingController(),
+    's8': TextEditingController(),
+    's9': TextEditingController(),
+    'minCharge': TextEditingController(),
+  };
+
+  bool _isWaterTariffMode = false;
+
   @override
   void initState() {
     super.initState();
@@ -58,6 +73,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _tariffControllers['dutyPercent']?.text = (prefs.getDouble('tariff_dutyPercent') ?? defaultTariff.dutyPercent).toStringAsFixed(2);
     _tariffControllers['surcharge']?.text = (prefs.getDouble('tariff_surcharge') ?? defaultTariff.surcharge).toStringAsFixed(2);
 
+    _waterTariffControllers['s1']?.text = (prefs.getDouble('water_tariff_s1') ?? defaultWaterTariff.s1).toStringAsFixed(2);
+    _waterTariffControllers['s2']?.text = (prefs.getDouble('water_tariff_s2') ?? defaultWaterTariff.s2).toStringAsFixed(2);
+    _waterTariffControllers['s3']?.text = (prefs.getDouble('water_tariff_s3') ?? defaultWaterTariff.s3).toStringAsFixed(2);
+    _waterTariffControllers['s4']?.text = (prefs.getDouble('water_tariff_s4') ?? defaultWaterTariff.s4).toStringAsFixed(2);
+    _waterTariffControllers['s5']?.text = (prefs.getDouble('water_tariff_s5') ?? defaultWaterTariff.s5).toStringAsFixed(2);
+    _waterTariffControllers['s6']?.text = (prefs.getDouble('water_tariff_s6') ?? defaultWaterTariff.s6).toStringAsFixed(2);
+    _waterTariffControllers['s7']?.text = (prefs.getDouble('water_tariff_s7') ?? defaultWaterTariff.s7).toStringAsFixed(2);
+    _waterTariffControllers['s8']?.text = (prefs.getDouble('water_tariff_s8') ?? defaultWaterTariff.s8).toStringAsFixed(2);
+    _waterTariffControllers['s9']?.text = (prefs.getDouble('water_tariff_s9') ?? defaultWaterTariff.s9).toStringAsFixed(2);
+    _waterTariffControllers['minCharge']?.text = (prefs.getDouble('water_tariff_minCharge') ?? defaultWaterTariff.minCharge).toStringAsFixed(2);
+
     setState(() {});
   }
 
@@ -79,6 +105,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await prefs.setDouble('tariff_dutyPercent', double.tryParse(_tariffControllers['dutyPercent']!.text) ?? defaultTariff.dutyPercent);
     await prefs.setDouble('tariff_surcharge', double.tryParse(_tariffControllers['surcharge']!.text) ?? defaultTariff.surcharge);
 
+    await prefs.setDouble('water_tariff_s1', double.tryParse(_waterTariffControllers['s1']!.text) ?? defaultWaterTariff.s1);
+    await prefs.setDouble('water_tariff_s2', double.tryParse(_waterTariffControllers['s2']!.text) ?? defaultWaterTariff.s2);
+    await prefs.setDouble('water_tariff_s3', double.tryParse(_waterTariffControllers['s3']!.text) ?? defaultWaterTariff.s3);
+    await prefs.setDouble('water_tariff_s4', double.tryParse(_waterTariffControllers['s4']!.text) ?? defaultWaterTariff.s4);
+    await prefs.setDouble('water_tariff_s5', double.tryParse(_waterTariffControllers['s5']!.text) ?? defaultWaterTariff.s5);
+    await prefs.setDouble('water_tariff_s6', double.tryParse(_waterTariffControllers['s6']!.text) ?? defaultWaterTariff.s6);
+    await prefs.setDouble('water_tariff_s7', double.tryParse(_waterTariffControllers['s7']!.text) ?? defaultWaterTariff.s7);
+    await prefs.setDouble('water_tariff_s8', double.tryParse(_waterTariffControllers['s8']!.text) ?? defaultWaterTariff.s8);
+    await prefs.setDouble('water_tariff_s9', double.tryParse(_waterTariffControllers['s9']!.text) ?? defaultWaterTariff.s9);
+    await prefs.setDouble('water_tariff_minCharge', double.tryParse(_waterTariffControllers['minCharge']!.text) ?? defaultWaterTariff.minCharge);
+
     setState(() {
       _saving = false;
       _saved = true;
@@ -91,8 +128,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   @override
   void dispose() {
-    _roomControllers.values.forEach((c) => c.dispose());
-    _tariffControllers.values.forEach((c) => c.dispose());
+    for (var c in _roomControllers.values) { c.dispose(); }
+    for (var c in _tariffControllers.values) { c.dispose(); }
+    for (var c in _waterTariffControllers.values) { c.dispose(); }
     super.dispose();
   }
 
@@ -198,70 +236,192 @@ class _SettingsScreenState extends State<SettingsScreen> {
               ),
             ),
 
-            // Tariff Rates
-            _buildCard(
-              context,
-              icon: LucideIcons.indianRupee,
-              iconColor: const Color(0xFFF59E0B), // Amber/Yellow
-              title: "KSEB Tariff Rates",
-              child: Column(
+            // Tariff Rates Toggle Header
+            Container(
+              margin: const EdgeInsets.only(bottom: 24),
+              padding: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: appColors.card,
+                borderRadius: BorderRadius.circular(100),
+                border: Border.all(color: appColors.border.withOpacity(0.5), width: 1.5),
+              ),
+              child: Row(
                 children: [
-                  Row(
-                    children: [
-                      Expanded(child: _buildInputField(context, "0-50 units", _tariffControllers['slab1']!, isNumber: true, prefix: "₹ ")),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildInputField(context, "51-100 units", _tariffControllers['slab2']!, isNumber: true, prefix: "₹ ")),
-                    ],
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isWaterTariffMode = false),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: !_isWaterTariffMode ? AppTheme.electricGreen.withOpacity(0.1) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(LucideIcons.zap, size: 16, color: !_isWaterTariffMode ? AppTheme.electricGreen : appColors.mutedForeground),
+                            const SizedBox(width: 8),
+                            Text("Electricity (KSEB)", style: TextStyle(
+                              fontSize: 13, fontWeight: !_isWaterTariffMode ? FontWeight.bold : FontWeight.w600,
+                              color: !_isWaterTariffMode ? AppTheme.electricGreen : appColors.mutedForeground,
+                            )),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: _buildInputField(context, "101-150 units", _tariffControllers['slab3']!, isNumber: true, prefix: "₹ ")),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildInputField(context, "151-200 units", _tariffControllers['slab4']!, isNumber: true, prefix: "₹ ")),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: _buildInputField(context, "201-250 units", _tariffControllers['slab5']!, isNumber: true, prefix: "₹ ")),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildInputField(context, ">250 units", _tariffControllers['slab6']!, isNumber: true, prefix: "₹ ")),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: _buildInputField(context, "Fixed Charge", _tariffControllers['fixedCharge']!, isNumber: true)),
-                      const SizedBox(width: 12),
-                      Expanded(child: _buildInputField(context, "Duty %", _tariffControllers['dutyPercent']!, isNumber: true)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(child: _buildInputField(context, "Surcharge (₹/unit)", _tariffControllers['surcharge']!, isNumber: true)),
-                      const SizedBox(width: 12),
-                      Expanded(child: Container()), // Empty placeholder for layout balance
-                    ],
+                  Expanded(
+                    child: GestureDetector(
+                      onTap: () => setState(() => _isWaterTariffMode = true),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        decoration: BoxDecoration(
+                          color: _isWaterTariffMode ? Colors.lightBlue.withOpacity(0.1) : Colors.transparent,
+                          borderRadius: BorderRadius.circular(100),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(LucideIcons.droplets, size: 16, color: _isWaterTariffMode ? Colors.lightBlue : appColors.mutedForeground),
+                            const SizedBox(width: 8),
+                            Text("Water (KWA)", style: TextStyle(
+                              fontSize: 13, fontWeight: _isWaterTariffMode ? FontWeight.bold : FontWeight.w600,
+                              color: _isWaterTariffMode ? Colors.lightBlue : appColors.mutedForeground,
+                            )),
+                          ],
+                        ),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // KSEB Info
-            _buildCard(
-              context,
-              icon: LucideIcons.info,
-              iconColor: const Color(0xFF0D9488), // Teal
-              title: "KSEB Slab System",
-              child: Text(
-                "Kerala State Electricity Board (KSEB) uses a progressive slab system. You pay different rates for each block of units consumed. "
-                "The first 50 units are charged at the lowest rate, and subsequent blocks are charged at increasing rates. "
-                "A fixed charge and 15% electricity duty are added to the total.",
-                style: TextStyle(fontSize: 12, height: 1.5, color: appColors.mutedForeground),
+            // Tariff Rates Data
+            if (!_isWaterTariffMode) ...[
+              _buildCard(
+                context,
+                icon: LucideIcons.indianRupee,
+                iconColor: const Color(0xFFF59E0B), // Amber/Yellow
+                title: "KSEB Tariff Rates",
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "0-50 units", _tariffControllers['slab1']!, isNumber: true, prefix: "₹ ")),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, "51-100 units", _tariffControllers['slab2']!, isNumber: true, prefix: "₹ ")),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "101-150 units", _tariffControllers['slab3']!, isNumber: true, prefix: "₹ ")),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, "151-200 units", _tariffControllers['slab4']!, isNumber: true, prefix: "₹ ")),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "201-250 units", _tariffControllers['slab5']!, isNumber: true, prefix: "₹ ")),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, ">250 units", _tariffControllers['slab6']!, isNumber: true, prefix: "₹ ")),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "Fixed Charge", _tariffControllers['fixedCharge']!, isNumber: true)),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, "Duty %", _tariffControllers['dutyPercent']!, isNumber: true)),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "Surcharge (₹/unit)", _tariffControllers['surcharge']!, isNumber: true)),
+                        const SizedBox(width: 12),
+                        Expanded(child: Container()), 
+                      ],
+                    ),
+                  ],
+                ),
               ),
-            ),
+              _buildCard(
+                context,
+                icon: LucideIcons.info,
+                iconColor: const Color(0xFF0D9488), // Teal
+                title: "KSEB Slab System",
+                child: Text(
+                  "Kerala State Electricity Board (KSEB) uses a progressive slab system. You pay different rates for each block of units consumed. "
+                  "The first 50 units are charged at the lowest rate, and subsequent blocks are charged at increasing rates. "
+                  "A fixed charge and 15% electricity duty are added to the total.",
+                  style: TextStyle(fontSize: 12, height: 1.5, color: appColors.mutedForeground),
+                ),
+              ),
+            ] else ...[
+              _buildCard(
+                context,
+                icon: LucideIcons.droplets,
+                iconColor: Colors.lightBlue,
+                title: "KWA Tariff Rates (per KL)",
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "0-5 KL", _waterTariffControllers['s1']!, isNumber: true, prefix: "₹ ")),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, "5-10 KL", _waterTariffControllers['s2']!, isNumber: true, prefix: "₹ ")),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "10-15 KL", _waterTariffControllers['s3']!, isNumber: true, prefix: "₹ ")),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, "15-20 KL", _waterTariffControllers['s4']!, isNumber: true, prefix: "₹ ")),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "20-25 KL", _waterTariffControllers['s5']!, isNumber: true, prefix: "₹ ")),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, "25-30 KL", _waterTariffControllers['s6']!, isNumber: true, prefix: "₹ ")),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, "30-40 KL", _waterTariffControllers['s7']!, isNumber: true, prefix: "₹ ")),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, "40-50 KL", _waterTariffControllers['s8']!, isNumber: true, prefix: "₹ ")),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    Row(
+                      children: [
+                        Expanded(child: _buildInputField(context, ">50 KL", _waterTariffControllers['s9']!, isNumber: true, prefix: "₹ ")),
+                        const SizedBox(width: 12),
+                        Expanded(child: _buildInputField(context, "Min Charge", _waterTariffControllers['minCharge']!, isNumber: true, prefix: "₹ ")),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              _buildCard(
+                context,
+                icon: LucideIcons.info,
+                iconColor: Colors.lightBlue,
+                title: "KWA Slab System",
+                child: Text(
+                  "Kerala Water Authority uses a mixed progressive-flat algorithm based on KL (1,000 Liters). "
+                  "Rates are calculated progressively up logic bounds (e.g., 0-5, 5-10, 10-15), while intermediate consumption (15-50 KL) triggers fixed-tier multiplication for entire usage volumes over the min charges.",
+                  style: TextStyle(fontSize: 12, height: 1.5, color: appColors.mutedForeground),
+                ),
+              ),
+            ],
 
             // Save Button
             SizedBox(
