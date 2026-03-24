@@ -120,7 +120,6 @@ class EnergyDataProvider extends ChangeNotifier {
         notifyListeners();
       });
     } catch (e) {
-    } catch (e) {
       print("Error fetching from Firebase: $e");
       // Continue with mock data already initialized
       _processAnalytics();
@@ -209,8 +208,9 @@ class EnergyDataProvider extends ChangeNotifier {
     // 3. Slab Change Alert
     final currentUnits = metrics.monthlyTotalKwh;
     String currentSlab = "Slab 1";
-    if (currentUnits > 250) currentSlab = "Slab 6";
-    else if (currentUnits > 200) currentSlab = "Slab 5";
+    if (currentUnits > 250) {
+      currentSlab = "Slab 6";
+    } else if (currentUnits > 200) currentSlab = "Slab 5";
     else if (currentUnits > 150) currentSlab = "Slab 4";
     else if (currentUnits > 100) currentSlab = "Slab 3";
     else if (currentUnits > 50) currentSlab = "Slab 2";

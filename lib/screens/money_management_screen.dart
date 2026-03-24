@@ -5,7 +5,6 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../providers/energy_provider.dart';
 import '../providers/water_provider.dart';
-import '../models/water_models.dart';
 import '../theme/app_theme.dart';
 import '../services/billing_calculator.dart';
 
@@ -449,7 +448,7 @@ class _MoneyManagementScreenState extends State<MoneyManagementScreen> {
                                       Text("₹${(item['value'] as double).toStringAsFixed(2)}", style: TextStyle(fontSize: 14, fontFamily: 'JetBrains Mono', color: Theme.of(context).textTheme.bodyLarge?.color)),
                                     ],
                                   ),
-                                )).toList()
+                                ))
                           ],
                         ),
                       ),

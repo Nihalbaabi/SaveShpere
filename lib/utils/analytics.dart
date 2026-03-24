@@ -186,8 +186,9 @@ List<BucketData> groupWeeklyW1ToW4(List<DeltaLog> deltas) {
   for (final d in monthDeltas) {
     int day = int.tryParse(d.date.split("-")[2]) ?? 1;
     int idx;
-    if (day <= 7) idx = 0;
-    else if (day <= 14) idx = 1;
+    if (day <= 7) {
+      idx = 0;
+    } else if (day <= 14) idx = 1;
     else if (day <= 21) idx = 2;
     else idx = 3;
 

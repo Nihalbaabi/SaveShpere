@@ -14,7 +14,7 @@ import '../widgets/smart_assistant.dart';
 class HomeScreen extends StatefulWidget {
   final Function(String) onNavigate;
 
-  const HomeScreen({Key? key, required this.onNavigate}) : super(key: key);
+  const HomeScreen({super.key, required this.onNavigate});
 
   @override
   State<HomeScreen> createState() => _HomeScreenState();

@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart' hide Intent;
 import 'package:speech_to_text/speech_to_text.dart';
-import 'package:flutter_tts/flutter_tts.dart';
 import 'package:permission_handler/permission_handler.dart';
-import '../models/energy_models.dart';
-import '../models/water_models.dart';
 import '../models/assistant.dart';
 import '../services/ai/time_parser.dart';
 import '../services/ai/intent_detector.dart';
@@ -40,7 +37,7 @@ class AssistantProvider extends ChangeNotifier {
   String _state = 'idle'; // idle, listening, processing
   String get state => _state;
 
-  List<ChatMessage> _messages = [];
+  final List<ChatMessage> _messages = [];
   List<ChatMessage> get messages => _messages;
 
   String _lastTranscript = "";
@@ -195,8 +192,9 @@ class AssistantProvider extends ChangeNotifier {
             topicModifier = "monthly";
         }
     } else if (activeIntent == Intent.themeChange) {
-        if (lowerMsg.contains("dark")) topicModifier = "dark";
-        else if (lowerMsg.contains("light")) topicModifier = "light";
+        if (lowerMsg.contains("dark")) {
+          topicModifier = "dark";
+        } else if (lowerMsg.contains("light")) topicModifier = "light";
         else topicModifier = "system";
     } else if (activeIntent == Intent.powerControl) {
         final isOff = lowerMsg.contains("off") || lowerMsg.contains("shutdown") || lowerMsg.contains("disable");
@@ -278,8 +276,9 @@ class AssistantProvider extends ChangeNotifier {
 
     String? action;
     if (activeIntent == Intent.themeChange) {
-      if (topicModifier == "dark") action = "set_dark_mode";
-      else if (topicModifier == "light") action = "set_light_mode";
+      if (topicModifier == "dark") {
+        action = "set_dark_mode";
+      } else if (topicModifier == "light") action = "set_light_mode";
       else action = "set_system_theme";
     }
 

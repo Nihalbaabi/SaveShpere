@@ -58,8 +58,9 @@ class NotificationTracker {
     await _checkAndResetMonthly();
     final prefs = await SharedPreferences.getInstance();
     String key = '';
-    if (percentage == 50) key = _keyBudget50;
-    else if (percentage == 75) key = _keyBudget75;
+    if (percentage == 50) {
+      key = _keyBudget50;
+    } else if (percentage == 75) key = _keyBudget75;
     else if (percentage == 100) key = _keyBudget100;
     
     if (key.isEmpty) return false;
@@ -75,8 +76,9 @@ class NotificationTracker {
     await _checkAndResetMonthly();
     final prefs = await SharedPreferences.getInstance();
     String key = '';
-    if (percentage == 50) key = _keyPower50;
-    else if (percentage == 75) key = _keyPower75;
+    if (percentage == 50) {
+      key = _keyPower50;
+    } else if (percentage == 75) key = _keyPower75;
     else if (percentage == 100) key = _keyPower100;
     
     if (key.isEmpty) return false;

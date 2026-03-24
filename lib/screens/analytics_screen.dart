@@ -338,9 +338,9 @@ class _AnalyticsScreenState extends State<AnalyticsScreen> {
 
             // Room Pie Chart
             RoomBreakdownWidget(
-              bedroom: provider.liveData?.energy['bedroom'] ?? provider.monthEnergy?['bedroom'] ?? 0.0,
-              livingRoom: provider.liveData?.energy['livingRoom'] ?? provider.monthEnergy?['livingRoom'] ?? 0.0,
-              kitchen: provider.liveData?.energy['kitchen'] ?? provider.monthEnergy?['kitchen'] ?? 0.0,
+              bedroom: provider.liveData?.energy['bedroom'] ?? provider.monthEnergy['bedroom'] ?? 0.0,
+              livingRoom: provider.liveData?.energy['livingRoom'] ?? provider.monthEnergy['livingRoom'] ?? 0.0,
+              kitchen: provider.liveData?.energy['kitchen'] ?? provider.monthEnergy['kitchen'] ?? 0.0,
             ),
             const SizedBox(height: 24),
 
@@ -750,8 +750,9 @@ class _UsageChartWidgetState extends State<UsageChartWidget> {
                         interval: interval,
                         getTitlesWidget: (value, meta) {
                           String text = value.toStringAsFixed(2);
-                          if (text.endsWith('.00')) text = value.toStringAsFixed(0);
-                          else if (text.endsWith('0')) text = value.toStringAsFixed(1);
+                          if (text.endsWith('.00')) {
+                            text = value.toStringAsFixed(0);
+                          } else if (text.endsWith('0')) text = value.toStringAsFixed(1);
                           return Text(text, style: TextStyle(color: appColors.mutedForeground, fontSize: 10, fontWeight: FontWeight.bold));
                         },
                       ),

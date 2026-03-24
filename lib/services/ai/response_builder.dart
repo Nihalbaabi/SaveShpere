@@ -20,7 +20,7 @@ String trimToWordLimit(String text, int maxWords) {
   }
 
   // Fallback if no good sentence boundary is found
-  return cutText + "...";
+  return "$cutText...";
 }
 
 String pickRandomVariant(List<String> variants) {
@@ -32,7 +32,7 @@ String pickRandomVariant(List<String> variants) {
 String _formatBucketLine(dynamic bucket) {
   final label = (bucket as BucketData).label;
   final total = bucket.total.toStringAsFixed(2);
-  return "$label: ${total} kWh";
+  return "$label: $total kWh";
 }
 
 String buildResponse(
@@ -184,8 +184,9 @@ String buildResponse(
       break;
     
     case Intent.powerControl:
-      if (contextTopic == "all_on") baseResponse = "All rooms turned ON.";
-      else if (contextTopic == "all_off") baseResponse = "All rooms turned OFF.";
+      if (contextTopic == "all_on") {
+        baseResponse = "All rooms turned ON.";
+      } else if (contextTopic == "all_off") baseResponse = "All rooms turned OFF.";
       else if (contextTopic == "bedroom_on") baseResponse = "Bedroom turned ON.";
       else if (contextTopic == "bedroom_off") baseResponse = "Bedroom turned OFF.";
       else if (contextTopic == "living_on") baseResponse = "Living Room turned ON.";
@@ -371,8 +372,9 @@ String buildWaterResponse(
       break;
 
     case Intent.powerControl:
-      if (contextTopic == "all_on") baseResponse = "Motor pump turned ON.";
-      else if (contextTopic == "all_off") baseResponse = "Motor pump turned OFF.";
+      if (contextTopic == "all_on") {
+        baseResponse = "Motor pump turned ON.";
+      } else if (contextTopic == "all_off") baseResponse = "Motor pump turned OFF.";
       else if (contextTopic == "bedroom_on" || contextTopic == "living_on" || contextTopic == "kitchen_on") baseResponse = "Water outlet opened.";
       else if (contextTopic == "bedroom_off" || contextTopic == "living_off" || contextTopic == "kitchen_off") baseResponse = "Water outlet closed.";
       else baseResponse = "Valve state updated.";

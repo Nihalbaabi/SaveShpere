@@ -10,12 +10,12 @@ class BillCard extends StatelessWidget {
   final bool isWater;
 
   const BillCard({
-    Key? key,
+    super.key,
     required this.currentUnits,
     required this.tariff,
     this.compact = false,
     this.isWater = false,
-  }) : super(key: key);
+  });
 
   Map<String, dynamic> _getCurrentSlab(double units) {
     if (units <= 50) return {'slabNumber': 1, 'rate': 3.30};

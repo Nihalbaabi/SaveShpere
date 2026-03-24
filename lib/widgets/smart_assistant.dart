@@ -6,7 +6,6 @@ import '../providers/theme_provider.dart';
 import '../providers/energy_provider.dart';
 import '../providers/water_provider.dart';
 import '../models/energy_models.dart';
-import '../models/assistant.dart';
 import '../theme/app_theme.dart';
 import 'typing_indicator.dart';
 import 'voice_visualizer.dart';
@@ -14,7 +13,7 @@ import 'voice_visualizer.dart';
 class SmartAssistantWidget extends StatefulWidget {
   final EnergyMetrics energyData;
 
-  const SmartAssistantWidget({Key? key, required this.energyData}) : super(key: key);
+  const SmartAssistantWidget({super.key, required this.energyData});
 
   @override
   State<SmartAssistantWidget> createState() => _SmartAssistantWidgetState();

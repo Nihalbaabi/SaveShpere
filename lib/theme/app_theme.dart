@@ -34,8 +34,6 @@ class AppTheme {
         primary: primary,
         secondary: secondary,
         surface: card,
-        background: background,
-        onBackground: foreground,
         onSurface: foreground,
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.light().textTheme).apply(
@@ -86,8 +84,6 @@ class AppTheme {
         primary: primary,
         secondary: secondary,
         surface: card,
-        background: background,
-        onBackground: foreground,
         onSurface: foreground,
       ),
       textTheme: GoogleFonts.interTextTheme(ThemeData.dark().textTheme).apply(
@@ -175,9 +171,9 @@ class AppColors extends ThemeExtension<AppColors> {
       warning: warning ?? this.warning,
       error: error ?? this.error,
       foreground: foreground ?? this.foreground,
-      bedroom: bedroom ?? this.bedroom,
-      living: living ?? this.living,
-      kitchen: kitchen ?? this.kitchen,
+      bedroom: bedroom ?? bedroom,
+      living: living ?? living,
+      kitchen: kitchen ?? kitchen,
     );
   }
 

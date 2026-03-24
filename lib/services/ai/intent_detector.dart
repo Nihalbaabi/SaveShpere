@@ -1,4 +1,3 @@
-import '../../models/energy_models.dart';
 import '../../models/assistant.dart';
 import '../../config/assistant_config.dart';
 

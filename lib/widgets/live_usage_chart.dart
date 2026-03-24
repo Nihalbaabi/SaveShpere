@@ -12,14 +12,14 @@ class LiveUsageChart extends StatelessWidget {
   final String unit;
 
   const LiveUsageChart({
-    Key? key,
+    super.key,
     required this.data,
     this.isWater = false,
     this.themeColor = AppTheme.electricGreen,
     this.title = 'Energy Consumption Profile',
     this.subtitle = 'Real-time total hourly usage',
     this.unit = 'kW',
-  }) : super(key: key);
+  });
 
   List<FlSpot> _getSpots(String roomKey) {
     if (data.isEmpty) return [];
@@ -193,8 +193,9 @@ class LiveUsageChart extends StatelessWidget {
                           interval: interval,
                           getTitlesWidget: (value, meta) {
                             String text = value.toStringAsFixed(2);
-                            if (text.endsWith('.00')) text = value.toStringAsFixed(0);
-                            else if (text.endsWith('0')) text = value.toStringAsFixed(1);
+                            if (text.endsWith('.00')) {
+                              text = value.toStringAsFixed(0);
+                            } else if (text.endsWith('0')) text = value.toStringAsFixed(1);
                             return Text(
                               '$text $unit',
                               style: TextStyle(

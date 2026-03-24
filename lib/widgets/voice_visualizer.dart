@@ -2,7 +2,7 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 
 class VoiceVisualizer extends StatefulWidget {
-  const VoiceVisualizer({Key? key}) : super(key: key);
+  const VoiceVisualizer({super.key});
 
   @override
   State<VoiceVisualizer> createState() => _VoiceVisualizerState();

@@ -10,11 +10,11 @@ class AppLayout extends StatefulWidget {
   final Function(String) onNavigate;
 
   const AppLayout({
-    Key? key,
+    super.key,
     required this.child,
     required this.currentRoute,
     required this.onNavigate,
-  }) : super(key: key);
+  });
 
   @override
   State<AppLayout> createState() => _AppLayoutState();
@@ -169,7 +169,7 @@ class _AppLayoutState extends State<AppLayout> {
                         },
                       ),
                     );
-                  }).toList(),
+                  }),
                 ],
               ),
             ),
