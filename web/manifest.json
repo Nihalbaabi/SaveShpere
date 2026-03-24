@@ -1,6 +1,6 @@
 {
-    "name": "EcoTrack",
-    "short_name": "EcoTrack",
+    "name": "SaveSphere",
+    "short_name": "SaveSphere",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

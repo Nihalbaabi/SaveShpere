@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:ecotrack/main.dart'; // Adjust path if necessary
+import 'package:savesphere/main.dart'; // Adjust path if necessary
 
 void main() {
   testWidgets('App loads smoke test', (WidgetTester tester) async {

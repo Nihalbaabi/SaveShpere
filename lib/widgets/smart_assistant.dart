@@ -155,7 +155,7 @@ class _SmartAssistantWidgetState extends State<SmartAssistantWidget> with Single
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      "EcoTrack AI",
+                      "SaveSphere AI",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         fontSize: 16,
